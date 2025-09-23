@@ -1,0 +1,24 @@
+name: Release with README
+
+on:
+  push:
+    tags:
+      - 'v*'   # runs on tag pushes like v0.1.5
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read README
+        id: readme
+        run: |
+          echo "README<<EOF" >> $GITHUB_OUTPUT
+          cat README.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body: ${{ steps.readme.outputs.README }}
