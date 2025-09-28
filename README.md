@@ -5,7 +5,7 @@
 > [!IMPORTANT]
 > This repository serves as the official distribution hub for RhythmiRust releases, including binaries, release notes, and changelogs. Please note that the core application’s source code is closed source and not publicly available here. This repo is intended solely for convenient download and documentation purposes.
 
-**RhythmiRust** is a Rust-based music player, downloader, searcher, and metadata editor designed for simplicity, efficiency, and cross-platform compatibility.
+**RhythmiRust** is a Rust-based music player, downloader, searcher and metadata editor designed for simplicity, efficiency and cross-platform compatibility.
 
 ---
 
@@ -27,7 +27,7 @@
 ---
 
 ### Project Origin
-RhythmiRust began as two Bash scripts for downloading and searching music. As the project grew, it evolved into a single application with a GUI, minimal dependencies, portability, and a focus on memory footprint, performance, and user experience.
+RhythmiRust began as two Bash scripts for downloading and searching music. As the project grew, it evolved into a single application with a GUI, minimal dependencies, portability and a focus on memory footprint, performance, and user experience.
 
 ---
 
