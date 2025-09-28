@@ -1,7 +1,7 @@
 use rusqlite::{Connection, Error, types::Type};
 use serde_json::{json, Value};
 
-// This is a quick script to migrate the changes made in the database
+// This is a quick script to migrate the changes made in the database current version `0.1.8` to `0.1.9`
 
 fn migrate_config(db_path: &str) -> Result<(), Error> {
     let conn = Connection::open(db_path)?;
