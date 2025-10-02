@@ -13,6 +13,11 @@
 
 ---
 
+### Screenshot
+![RhythmiRust Screenshot](screenshot.png)
+
+---
+
 ### What's Included
 - Latest stable release binaries for Windows and Linux
 - Release notes for each version
