@@ -1,145 +1,242 @@
-use rusqlite::{Connection, Error, types::Type};
-use serde_json::{json, Value};
+use std::{
+    ffi::OsStr,
+    fs::OpenOptions,
+    io::{Write, stdin, stdout},
+    path::{Path, PathBuf},
+};
 
-// This is a quick script to migrate the changes made in the database current version `0.1.8` to `0.1.9`
+use lofty::{
+    config::WriteOptions,
+    file::AudioFile,
+    prelude::{TagExt, TaggedFileExt},
+    read_from_path,
+    tag::{ItemKey, Tag, TagType},
+};
+use rusqlite::{Connection, Error};
+use walkdir::WalkDir;
+
+// This is a quick script to migrate the changes made in the database current version `0.2.0` to `0.3.0`
 
 fn migrate_config(db_path: &str) -> Result<(), Error> {
     let conn = Connection::open(db_path)?;
 
-    // Get column names from download_structured table
-    let mut stmt = conn.prepare("PRAGMA table_info(download_structured)")?;
-    let mut columns = stmt.query_map([], |row| {
-        let column: String = row.get(1)?;
-        Ok(column)
-    })?;
-
-    while let Some(column) = columns.next().transpose()? {
-        let column: String = column;
-        let mut stmt = conn.prepare(&format!("SELECT {} FROM download_structured ORDER BY rowid", column))?;
-        let mut rows = stmt.query_map([], |row| {
-            let data: String = row.get(0)?;
-            Ok(data)
-        })?;
-
-        // Collect all processed items for this column into a single array
-        let mut data_array: Vec<Value> = Vec::new();
-
-        while let Some(row) = rows.next().transpose()? {
-            let data: String = row;
-            if data.is_empty() || data == "null" {
-                continue;
-            }
-            let data: Value = match serde_json::from_str(&data) {
-                Ok(data) => data,
-                Err(e) => {
-                    eprintln!("Error parsing JSON: {}", e);
-                    continue;
-                }
-            };
-
-            if data.is_array() {
-                for item in data.as_array().unwrap() {
-                    let mut item = item.as_object().unwrap().clone();
-                    if item.contains_key("active") {
-                        let active = item.remove("active").unwrap_or(json!(null));
-                        let codec = item.remove("codec").unwrap_or(json!(null));
-                        let main = item.remove("main").unwrap_or(json!(null));
-                        let mut new_item = serde_json::json!({
-                            "is_active": active,
-                            "audio_codec": codec,
-                            "download_items": main
-                        });
-                        if let Some(executable) = item.remove("executable") {
-                            new_item.as_object_mut().unwrap().insert("executable".to_string(), executable);
-                        }
-                        if let Some(yt_dlp_args) = item.remove("yt_dlp_args") {
-                            new_item.as_object_mut().unwrap().insert("yt_dlp_args".to_string(), yt_dlp_args);
-                        }
-                        data_array.push(new_item);
-                    } else if item.contains_key("name") && item.contains_key("url") {
-                        let mut new_item = serde_json::json!({
-                            "is_active": true,
-                            "audio_codec": "opus",
-                            "download_items": [item]
-                        });
-                        data_array.push(new_item);
-                    } else {
-                        data_array.push(Value::Object(item));
-                    }
-                }
-            }
-        }
-
-        // Update the column once with the full array
-        if !data_array.is_empty() {
-            let update_query = format!("UPDATE download_structured SET {} = ?", column);
-            conn.execute(
-                &update_query,
-                &[&serde_json::to_string(&json!(data_array)).map_err(|e| Error::FromSqlConversionFailure(0, Type::Text, Box::new(e)))?]
-            )?;
-        }
-    }
-
-    // Process music_config table similarly
-    let mut stmt = conn.prepare("SELECT download_args FROM music_config ORDER BY rowid")?;
-    let mut rows = stmt.query_map([], |row| {
-        let args: String = row.get(0)?;
-        Ok(args)
-    })?;
-
-    // Collect all processed download_args into a single array
-    let mut args_array: Vec<Value> = Vec::new();
-
-    while let Some(row) = rows.next().transpose()? {
-        let args: String = row;
-        if args.is_empty() || args == "null" {
-            continue;
-        }
-        let args: Value = match serde_json::from_str(&args) {
-            Ok(data) => data,
-            Err(e) => {
-                eprintln!("Error parsing JSON: {}", e);
-                continue;
-            }
-        };
-
-        if args.is_array() {
-            for arg in args.as_array().unwrap() {
-                let mut new_arg = json!({}).as_object().unwrap().clone();
-                let comment = arg.get("comment").cloned().unwrap_or(json!(null));
-                let args_value = arg.get("args").cloned().unwrap_or(json!(null));
-
-                if let Some(comment_str) = comment.as_str() {
-                    new_arg.insert("description".to_string(), json!(comment_str));
-                }
-
-                if let Some(args_value_str) = args_value.as_str() {
-                    new_arg.insert("arguments".to_string(), json!(args_value_str));
-                } else {
-                    new_arg.insert("arguments".to_string(), json!(""));
-                }
-                args_array.push(json!(new_arg));
-            }
+    // Prompt before dropping colours_table
+    if prompt_yes_no("Do you want to drop the 'colours_table' if it exists?") {
+        if conn
+            .execute("DROP TABLE IF EXISTS colours_table;", [])
+            .is_ok()
+        {
+            println!("Dropped colours_table");
         } else {
-            eprintln!("Error parsing download_args: invalid type");
+            println!("Failed to drop colours_table");
         }
+    } else {
+        println!("Skipped dropping colours_table");
     }
 
-    // Update music_config table once with the full array
-    if !args_array.is_empty() {
-        let update_query = "UPDATE music_config SET download_args = ?";
-        conn.execute(
-            update_query,
-            &[&serde_json::to_string(&json!(args_array)).map_err(|e| Error::FromSqlConversionFailure(0, Type::Text, Box::new(e)))?]
-        )?;
+    // Prompt before dropping download_args column
+    if prompt_yes_no("Do you want to drop the 'download_args' column from 'music_config'?") {
+        if conn
+            .execute("ALTER TABLE music_config DROP COLUMN download_args;", [])
+            .is_ok()
+        {
+            println!("Dropped download_args column from music_config");
+        } else {
+            println!("Failed to drop download_args column from music_config");
+        }
+    } else {
+        println!("Skipped dropping download_args column");
     }
 
     Ok(())
 }
 
-fn main() {
-    let db_path = "Config.sqlite3";
-    if let Err(err) = migrate_config(db_path) {
+fn prompt_yes_no(question: &str) -> bool {
+    loop {
+        print!("{} (y/n): ", question);
+        stdout().flush().expect("Failed to flush stdout");
+
+        let mut input = String::new();
+        if stdin().read_line(&mut input).is_err() {
+            println!("Failed to read input. Please try again.");
+            continue;
+        }
+
+        match input.trim().to_lowercase().as_str() {
+            "y" | "yes" => return true,
+            "n" | "no" => return false,
+            _ => println!("Please enter 'y' or 'n'."),
+        }
+    }
+}
+
+fn get_metadata_key<T>(tag: &Tag, key: &str) -> Option<T>
+where
+    T: std::str::FromStr,
+    <T as std::str::FromStr>::Err: std::fmt::Debug,
+{
+    let tag_types = [
+        TagType::Ape,
+        TagType::Id3v1,
+        TagType::Id3v2,
+        TagType::Mp4Ilst,
+        TagType::VorbisComments,
+        TagType::RiffInfo,
+        TagType::AiffText,
+    ];
+
+    for tag_type in &tag_types {
+        let item_key = ItemKey::from_key(*tag_type, key);
+        if let Some(value) = tag.get_string(&item_key) {
+            return value.parse::<T>().ok();
+        }
+    }
+    None
+}
+
+fn is_audio_file(path: &Path) -> bool {
+    match path.extension().and_then(OsStr::to_str) {
+        Some(ext) => matches!(
+            ext.to_ascii_lowercase().as_str(),
+            "mp3" | "flac" | "ogg" | "wav" | "m4a" | "aiff" | "opus"
+        ),
+        None => false,
+    }
+}
+
+fn process_file(path: &Path, log_file: &mut std::fs::File) {
+    match read_from_path(path) {
+        Ok(mut tagged_file) => {
+            let tag = if let Some(primary) = tagged_file.primary_tag_mut() {
+                primary
+            } else if let Some(first) = tagged_file.first_tag_mut() {
+                first
+            } else {
+                eprintln!("No tag found in file: {}", path.display());
+                return;
+            };
+
+            if let Some(user_rating) = get_metadata_key::<u8>(tag, "USERRATING") {
+                if let Some(filename) = path.file_name().and_then(OsStr::to_str) {
+                    println!("{}: USERRATING -> Rating", filename);
+                }
+
+                tag.insert_text(ItemKey::Popularimeter, user_rating.to_string());
+
+                for tag_type in [
+                    TagType::Ape,
+                    TagType::Id3v1,
+                    TagType::Id3v2,
+                    TagType::Mp4Ilst,
+                    TagType::VorbisComments,
+                    TagType::RiffInfo,
+                    TagType::AiffText,
+                ] {
+                    let item_key = ItemKey::from_key(tag_type, "USERRATING");
+                    if tag.contains(&item_key) {
+                        tag.remove_key(&item_key);
+                    }
+                }
+
+                if let Err(e) = tagged_file.save_to_path(path, WriteOptions::default()) {
+                    eprintln!("Failed to save {}: {}", path.display(), e);
+                } else {
+                    // Log the full path of the edited file
+                    if let Err(e) = writeln!(log_file, "{}", path.display()) {
+                        eprintln!("Failed to write to log file: {}", e);
+                    }
+                }
+            }
+        }
+        Err(err) => {
+            println!("Skipping unsupported file error: {}", err);
+        }
+    }
+}
+
+fn main() -> std::io::Result<()> {
+    // Get the path of the current executable
+    let exe_path = std::env::current_exe()?;
+
+    // Get the directory containing the executable
+    let exe_dir = exe_path
+        .parent()
+        .expect("Executable must be in some directory");
+
+    // Construct the full path to the database file as a String
+    let db_path = exe_dir
+        .join("Config.sqlite3")
+        .to_str()
+        .expect("Path is not valid UTF-8")
+        .to_string();
+
+    // Use db_path in your migrate_config function
+    if let Err(err) = migrate_config(&db_path) {
         eprintln!("Error: {}", err);
     }
+
+    // Construct the full path for the SCache
+    let file_path = exe_dir.join("SCache.sqlite3");
+
+    // Delete the file if it exists
+    if file_path.exists() {
+        std::fs::remove_file(&file_path)?;
+        println!("Deleted SCache.sqlite3 from exe dir");
+    } else {
+        println!("SCache.sqlite3 does not exist in exe dir no action taken");
+    }
+
+    // Prompt user for folder path or 'q' to quit
+    let target_dir: PathBuf = loop {
+        println!(
+            "This update changes `user_rating` metadata field to `rating` if you want to migrate your songs to use `rating` instead of `user_rating`"
+        );
+        println!(
+            "Then input the directory the songs are in below and it will read and write the `user_rating` metadata back to the files in the `rating` field "
+        );
+        println!("Enter a folder path to process (or 'q' to quit): ");
+        stdout().flush()?;
+
+        let mut input = String::new();
+        stdin().read_line(&mut input)?;
+        let input = input.trim();
+
+        if input.eq_ignore_ascii_case("q") {
+            println!("Quitting...");
+            return Ok(());
+        }
+
+        let path = Path::new(input);
+
+        if path.is_dir() {
+            break path.to_path_buf();
+        } else {
+            println!(
+                "Error: '{}' is not a valid directory. Please try again.",
+                input
+            );
+        }
+    };
+
+    // Construct the full path for the log file
+    let log_path = exe_dir.join("log.txt");
+
+    // Open (or create) the log file in append mode
+    let mut log_file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_path)?;
+
+    println!("Logging progress to: {}", log_path.display());
+
+    for entry in WalkDir::new(&target_dir).into_iter().filter_map(Result::ok) {
+        let path = entry.path();
+        if path.is_file() && is_audio_file(path) {
+            process_file(path, &mut log_file);
+        }
+    }
+
+    println!("Processing complete.");
+
+    Ok(())
 }
