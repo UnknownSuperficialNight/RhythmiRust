@@ -21,7 +21,9 @@ fn migrate_config(db_path: &str) -> Result<(), Error> {
     let conn = Connection::open(db_path)?;
 
     // Prompt before dropping colours_table
-    if prompt_yes_no("Do you want to drop the 'colours_table' if it exists?") {
+    if prompt_yes_no(
+        "Do you want to drop the 'colours_table' if it exists? (This is removed in version `0.3.0`)",
+    ) {
         if conn
             .execute("DROP TABLE IF EXISTS colours_table;", [])
             .is_ok()
@@ -35,7 +37,9 @@ fn migrate_config(db_path: &str) -> Result<(), Error> {
     }
 
     // Prompt before dropping download_args column
-    if prompt_yes_no("Do you want to drop the 'download_args' column from 'music_config'?") {
+    if prompt_yes_no(
+        "Do you want to drop the 'download_args' column from 'music_config'? (This has been revamped in version `0.3.0`)",
+    ) {
         if conn
             .execute("ALTER TABLE music_config DROP COLUMN download_args;", [])
             .is_ok()
@@ -189,10 +193,10 @@ fn main() -> std::io::Result<()> {
     // Prompt user for folder path or 'q' to quit
     let target_dir: PathBuf = loop {
         println!(
-            "This update changes `user_rating` metadata field to `rating` if you want to migrate your songs to use `rating` instead of `user_rating`"
+            "This update changes `user_rating` metadata field to `rating` if you used the rating button or field and want to migrate your songs to use `rating` instead of `user_rating`"
         );
         println!(
-            "Then input the directory the songs are in below and it will read and write the `user_rating` metadata back to the files in the `rating` field "
+            "Then input the directory the songs are in below and it will migrate the `user_rating` metadata back to the files in the `rating` field"
         );
         println!("Enter a folder path to process (or 'q' to quit): ");
         stdout().flush()?;
