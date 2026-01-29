@@ -16,6 +16,8 @@
 ### Screenshot
 ![RhythmiRust Screenshot](screenshot.png)
 
+### Development Timelapse
+[![Video Title](https://img.youtube.com/vi/iubHaXH05Zo/0.jpg)](https://www.youtube.com/watch?v=iubHaXH05Zo)
 ---
 
 ### What's Included
