@@ -30,10 +30,12 @@
 ### Features
 - Search and download music from YouTube, Spotify, SoundCloud, and more
 - Lightweight and portable design with minimal system resources
-- Album art support and metadata editing
+- Album art support with visual effects and mass shuffling
 - Cross-platform compatibility (Windows/Linux)
 - Clean, distraction-free interface
-- **Mass shuffle and autoplay**: shuffle your entire music collection and let it play automatically, so you can focus on gaming or other tasks without interruption
+- Duplicate detection with audio fingerprinting
+- Bit-perfect playback and decoder support
+- Metadata Editing with optional mass/bulk editing
 
 ---
 
