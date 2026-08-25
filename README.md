@@ -5,6 +5,10 @@
 > [!IMPORTANT]
 > This repository serves as the official distribution hub for RhythmiRust releases, including binaries, release notes, and changelogs. Please note that the core application’s source code is closed source and not publicly available here. This repo is intended solely for convenient download and documentation purposes.
 
+> [!WARNING]
+> **Use RhythmiRust at your own risk.** You are responsible for complying with applicable laws, copyright requirements, licenses, and third-party terms of service. See the full [Disclaimer](#disclaimer).
+
+
 > [!IMPORTANT]
 > This project is developed and maintained by a single creator. Your support and feedback are greatly appreciated as I continue to enhance and expand RhythmiRust.
 
@@ -55,3 +59,17 @@ RhythmiRust began as two Bash scripts for downloading and searching music. As th
 - Email: [Email](mailto:unknownsuperficialnight.skylight770@simplelogin.fr)
 
 If you encounter any bugs, have questions, or want to suggest new features, please open an issue on the [GitHub Issues page](https://github.com/UnknownSuperficialNight/RhythmiRust/issues). Your feedback helps make RhythmiRust better for everyone!
+
+---
+
+## Disclaimer
+
+RhythmiRust is provided “as is” and “as available,” without warranties of any kind, express or implied. You use RhythmiRust entirely at your own risk.
+
+The developer is not responsible for any damage, data loss, system issues, security problems, legal claims, copyright or licensing violations, or other consequences resulting from the use, misuse, installation, modification, or distribution of RhythmiRust.
+
+RhythmiRust may interact with third-party websites, platforms, services, APIs, or media sources. The developer does not control or endorse those third parties and is not responsible for their content, availability, terms of service, policies, or actions.
+
+You are solely responsible for ensuring that your use of RhythmiRust complies with all applicable laws, regulations, copyright requirements, licenses, and third-party terms of service. You should only download, access, modify, or store content for which you have the necessary rights or permission.
+
+By downloading, installing, or using RhythmiRust, you acknowledge and accept this disclaimer.
