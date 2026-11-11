@@ -18,7 +18,7 @@
 ![RhythmiRust Screenshot](screenshot.png)
 
 ### Development Timelapse
-[![RhythmiRust development timelapse](https://img.youtube.com/vi/iubHaXH05Zo/0.jpg)](https://www.youtube.com/watch?v=iubHaXH05Zo)
+[![RhythmiRust development timelapse](https://img.youtube.com/vi/tBGY1urGweU/maxresdefault.jpg)](https://www.youtube.com/watch?v=tBGY1urGweU)
 
 ---
 
